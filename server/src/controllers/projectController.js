@@ -51,31 +51,36 @@ const generateInvite = async (req, res) => {
     const { projectId } = req.params;
 
     const project = await Project.findById(projectId);
-
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    if (project.owner.toString() !== req.user.userId) {
-      return res
-        .status(403)
-        .json({ message: "Only project owner can generate invite" });
+    const isMember = project.members.some(
+      (memberId) => memberId.toString() === req.user.userId,
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "Access denied. Not a project member",
+      });
     }
 
-    const token = jwt.sign(
-      { projectId: project._id },
+    const inviteToken = jwt.sign(
+      { projectId },
       process.env.INVITE_TOKEN_SECRET,
       { expiresIn: "30m" },
     );
 
+    const inviteLink = `${process.env.CLIENT_URL}/join/${inviteToken}`;
+
     res.status(200).json({
-      message: "Invite token generated successfully",
-      inviteToken: token,
-      inviteLink: `${process.env.CLIENT_URL}/join/${token}`,
+      message: "Invite generated successfully",
+      token: inviteToken,
+      inviteLink,
     });
   } catch (error) {
     res.status(500).json({
-      message: "Failed to generate invite token",
+      message: "Failed to generate invite",
       error: error.message,
     });
   }
